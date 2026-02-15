@@ -15,7 +15,12 @@ echo -e "${BLUE}=== Universal Downloader Launcher ===${NC}"
 cd "$PROJECT_DIR" || { echo "Directory not found!"; exit 1; }
 
 echo -e "${GREEN}[1/2] Starting Download Engine (Worker)...${NC}"
+
+# Kill any existing workers to prevent duplicates
+pkill -f "worker/worker.py" 2>/dev/null
+
 # Activate venv and run worker in background
+export PYTHONUNBUFFERED=1
 ./worker/venv/bin/python worker/worker.py &
 WORKER_PID=$!
 

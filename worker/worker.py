@@ -38,10 +38,11 @@ def process_job(job):
     # --- SCANNING PHASE ---
     if job['status'] == 'scanning':
         try:
-            print("Scanning for formats...")
+            print(f"--> [SCAN START] Fetching info for: {url}")
             ydl_opts = {'quiet': True, 'no_warnings': True}
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 info = ydl.extract_info(url, download=False)
+                print(f"--> [SCAN DONE] Info extracted. Title: {info.get('title')}")
                 formats = []
                 
                 # Filter and simplify formats for UI

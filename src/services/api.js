@@ -56,36 +56,59 @@ export const downloadMedia = async (url, platform, settings, isPlaylist, userId,
     if (!downloadId) return { success: false, message: "Failed to initialize download" };
 
     return new Promise((resolve, reject) => {
-        // Subscribe to changes for this specific download
-        const channel = supabase
+        let pollingInterval;
+        let channel; // Declare channel here so it's accessible in cleanup
+
+        const handleUpdate = (newData) => {
+            console.log("[Update]", newData);
+            onUpdate({
+                status: newData.status,
+                formats: newData.available_formats,
+                percentage: 0,
+                log: `Status update: ${newData.status}`,
+                downloadId: downloadId
+            });
+
+            if (newData.status === 'completed') {
+                cleanup();
+                resolve({ success: true, message: 'Download completed successfully', fileName: newData.filename, fullPath });
+            }
+            if (newData.status === 'failed') {
+                cleanup();
+                reject(new Error(newData.filename || 'Download failed'));
+            }
+        };
+
+        const cleanup = () => {
+            if (pollingInterval) clearInterval(pollingInterval);
+            if (channel) supabase.removeChannel(channel);
+        };
+
+        // 1. Realtime Subscription
+        channel = supabase
             .channel(`download_${downloadId}`)
             .on(
                 'postgres_changes',
                 { event: 'UPDATE', schema: 'public', table: 'downloads', filter: `id=eq.${downloadId}` },
-                (payload) => {
-                    const newData = payload.new;
-                    console.log("[Realtime] Update:", newData);
-
-                    // Pass updates to UI
-                    onUpdate({
-                        status: newData.status,
-                        formats: newData.available_formats,
-                        percentage: 0,
-                        log: `Status update: ${newData.status}`,
-                        downloadId: downloadId // Pass ID specifically
-                    });
-
-                    if (newData.status === 'completed') {
-                        supabase.removeChannel(channel);
-                        resolve({ success: true, message: 'Download completed successfully', fileName: newData.filename, fullPath });
-                    }
-                    if (newData.status === 'failed') {
-                        supabase.removeChannel(channel);
-                        reject(new Error(newData.filename || 'Download failed'));
-                    }
-                }
+                (payload) => handleUpdate(payload.new)
             )
             .subscribe();
+
+        // 2. Polling Fallback (Every 2 seconds)
+        pollingInterval = setInterval(async () => {
+            const { data, error } = await supabase
+                .from('downloads')
+                .select('*')
+                .eq('id', downloadId)
+                .single();
+
+            if (data) {
+                // If status changed to relevant states, trigger update
+                if (['waiting_for_selection', 'completed', 'failed'].includes(data.status)) {
+                    handleUpdate(data);
+                }
+            }
+        }, 2000);
 
         // Initial log
         onUpdate({ status: 'scanning', log: 'Scanning video formats...' });
