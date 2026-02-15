@@ -15,8 +15,10 @@ import {
 } from '@mui/material';
 import { CloudDownload, CheckCircle, Error as ErrorIcon, AutoAwesome, PlaylistPlay } from '@mui/icons-material';
 import Layout from './components/Layout';
+import DownloadStatus from './components/DownloadStatus';
 import { useApp } from './context/AppContext';
 import { isPlaylist } from './utils/platform';
+import { downloadMedia } from './services/api';
 
 function App() {
     const { selectedPlatform, settings } = useApp();
@@ -26,12 +28,18 @@ function App() {
     const [message, setMessage] = useState('');
     const [playlistDetected, setPlaylistDetected] = useState(false);
 
+    // New state for logs and progress
+    const [logs, setLogs] = useState([]);
+    const [progress, setProgress] = useState(0);
+
     // Clear state when platform changes
     useEffect(() => {
         setUrl('');
         setStatus(null);
         setMessage('');
         setPlaylistDetected(false);
+        setLogs([]);
+        setProgress(0);
     }, [selectedPlatform]);
 
     useEffect(() => {
@@ -43,26 +51,35 @@ function App() {
         if (!url) return;
 
         setLoading(true);
-        setStatus(null);
+        setStatus('processing');
         setMessage('');
+        setLogs(['Initializing download process...']);
+        setProgress(0);
 
         try {
             if (!isValidUrl(url)) {
                 throw new Error('Please enter a valid URL');
             }
 
-            // Simulate download with settings
-            console.log(`Starting download for ${selectedPlatform} with settings:`, { ...settings, isPlaylist: playlistDetected });
-
-            // Mock API latency
-            await new Promise(resolve => setTimeout(resolve, 2500));
+            // Call API with callback for updates
+            await downloadMedia(
+                url,
+                selectedPlatform,
+                settings,
+                playlistDetected,
+                (update) => {
+                    if (update.log) setLogs(prev => [...prev, update.log]);
+                    if (update.progress) setProgress(update.progress);
+                }
+            );
 
             setStatus('success');
-            setMessage(`Successfully started download for ${selectedPlatform} ${playlistDetected ? '(Playlist)' : ''}! Check ${settings.outputPath} folder.`);
+            setMessage(`Successfully saved to: ${settings.outputPath}`);
 
         } catch (err) {
             setStatus('error');
             setMessage(err.message || 'Failed to start download');
+            setLogs(prev => [...prev, `ERROR: ${err.message}`]);
         } finally {
             setLoading(false);
         }
@@ -160,7 +177,7 @@ function App() {
                                     variant="contained"
                                     size="large"
                                     disabled={loading || !url}
-                                    startIcon={loading ? <CircularProgress size={20} color="inherit" /> : <CloudDownload />}
+                                    startIcon={loading && !logs.length ? <CircularProgress size={20} color="inherit" /> : <CloudDownload />}
                                     sx={{
                                         px: 4,
                                         minWidth: '160px',
@@ -175,11 +192,21 @@ function App() {
                                 </Button>
                             </Box>
                         </form>
+
+                        {/* Logs and Progress Section */}
+                        {(loading || logs.length > 0) && (
+                            <Fade in={true}>
+                                <div>
+                                    <DownloadStatus logs={logs} progress={progress} status={loading ? 'downloading' : 'completed'} />
+                                </div>
+                            </Fade>
+                        )}
+
                     </CardContent>
                 </Card>
 
                 <Box sx={{ mt: 4, minHeight: 60 }}>
-                    <Fade in={!!status}>
+                    <Fade in={!!status && status !== 'processing'}>
                         <Alert
                             icon={status === 'success' ? <CheckCircle fontSize="inherit" /> : <ErrorIcon fontSize="inherit" />}
                             severity={status === 'success' ? 'success' : 'error'}
