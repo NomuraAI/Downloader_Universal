@@ -139,8 +139,8 @@ def process_job(job):
             nonlocal last_update_time
             current_time = time.time()
             
-            # Simple throttle: Update DB max once every 1.5 seconds to avoid rate limits
-            if current_time - last_update_time < 1.5 and d['status'] != 'finished':
+            # Throttle: Update DB max once every 0.5 seconds (more frequent updates for user feedback)
+            if current_time - last_update_time < 0.5 and d['status'] != 'finished':
                 return
             
             if d['status'] == 'downloading':

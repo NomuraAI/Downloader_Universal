@@ -19,6 +19,7 @@ try:
     response = supabase.table('downloads').select("*").order('created_at', desc=True).limit(5).execute()
     print(f"Found {len(response.data)} recent jobs.")
     for job in response.data:
-        print(f"- [{job['created_at']}] ID: {job['id']} | Status: {job['status']} | Msg/File: {job['filename']}")
+        last_log = job.get('last_log', 'N/A')
+        print(f"- [{job['created_at']}] ID: {job['id']} | Status: {job['status']} | Msg/File: {job['filename']} | Last Log: {last_log}")
 except Exception as e:
     print(f"Error querying Supabase: {e}")

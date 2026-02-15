@@ -84,7 +84,21 @@ function App() {
                 playlistDetected,
                 user?.id,
                 (update) => {
-                    if (update.log) setLogs(prev => [...prev, update.log]);
+                    // Update Logs with deduplication
+                    if (update.log) {
+                        setLogs(prev => {
+                            // If the new log is identical to the last one, ignore it
+                            if (prev.length > 0 && prev[prev.length - 1] === update.log) {
+                                return prev;
+                            }
+                            // Also ignore if it's just "Status: downloading" repeated
+                            if (update.log === 'Status: downloading' && prev.some(l => l.includes('Downloading:'))) {
+                                return prev;
+                            }
+                            return [...prev, update.log];
+                        });
+                    }
+
                     if (update.progress) setProgress(update.progress);
 
                     // Handle Status Updates
