@@ -132,17 +132,59 @@ def process_job(job):
         selected_format = job.get('selected_format')
         format_str = selected_format if selected_format else 'best'
 
+        # Progress Hook with Throttling
+        last_update_time = 0
+        
+        def db_progress_hook(d):
+            nonlocal last_update_time
+            current_time = time.time()
+            
+            # Simple throttle: Update DB max once every 1.5 seconds to avoid rate limits
+            if current_time - last_update_time < 1.5 and d['status'] != 'finished':
+                return
+            
+            if d['status'] == 'downloading':
+                try:
+                    p_str = d.get('_percent_str', '0%').replace('%','')
+                    progress = float(p_str)
+                    
+                    status_log = f"Downloading: {p_str}% of {d.get('_total_bytes_str') or d.get('_total_bytes_estimate_str') or '?'}"
+                    print(f"--> {status_log}")
+                    
+                    supabase.table('downloads').update({
+                        'status': 'downloading',
+                        'progress': int(progress),
+                        'last_log': status_log
+                    }).eq('id', job['id']).execute()
+                    
+                    last_update_time = current_time
+                    
+                except Exception as e:
+                    print(f"Error sending progress: {e}")
+                    pass
+            
+            if d['status'] == 'finished':
+                print("Download phase finished. Converting/Merging...")
+                supabase.table('downloads').update({
+                    'progress': 100,
+                    'last_log': "Download finished. Merging formats..."
+                }).eq('id', job['id']).execute()
+
         ydl_opts = {
             'outtmpl': output_path,
-            'progress_hooks': [progress_hook],
+            'progress_hooks': [db_progress_hook],
             'format': format_str,
             'quiet': False,
             'no_warnings': True,
         }
 
         try:
-            # Update status to downloading
-            supabase.table('downloads').update({'status': 'downloading'}).eq('id', job['id']).execute()
+            # Update status to downloading start
+            supabase.table('downloads').update({
+                'status': 'downloading', 
+                'progress': 0,
+                'last_log': "Starting download engine..."
+            }).eq('id', job['id']).execute()
 
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 info = ydl.extract_info(url, download=True)
@@ -153,14 +195,17 @@ def process_job(job):
                 # Update status to completed
                 supabase.table('downloads').update({
                     'status': 'completed',
-                    'filename': filename
+                    'filename': filename,
+                    'progress': 100,
+                    'last_log': "Download Complete!"
                 }).eq('id', job['id']).execute()
 
         except Exception as e:
             print(f"Error downloading {url}: {e}")
             supabase.table('downloads').update({
                 'status': 'failed',
-                'filename': str(e)
+                'filename': str(e),
+                'last_log': f"Error: {str(e)}"
             }).eq('id', job['id']).execute()
 
 async def main():

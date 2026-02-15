@@ -61,13 +61,24 @@ export const downloadMedia = async (url, platform, settings, isPlaylist, userId,
 
         const handleUpdate = (newData) => {
             console.log("[Update]", newData);
-            onUpdate({
+
+            // Construct payload
+            const updatePayload = {
                 status: newData.status,
                 formats: newData.available_formats,
-                percentage: 0,
-                log: `Status update: ${newData.status}`,
+                percentage: newData.progress || 0,
                 downloadId: downloadId
-            });
+            };
+
+            // Only append log if it's new/different to avoid spam
+            if (newData.last_log) {
+                updatePayload.log = newData.last_log;
+            } else if (newData.status && newData.status !== 'processing' && newData.status !== 'downloading') {
+                // Fallback log for status changes if no specific message
+                updatePayload.log = `Status: ${newData.status}`;
+            }
+
+            onUpdate(updatePayload);
 
             if (newData.status === 'completed') {
                 cleanup();
