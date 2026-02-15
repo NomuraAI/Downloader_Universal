@@ -34,14 +34,20 @@ def progress_hook(d):
 def process_download(job):
     print(f"Processing job: {job['id']} - {job['original_url']}")
     
-    url = job['original_url']
-    # Organize by Uploader/Channel Name
-    # yt-dlp handles 'uploader' for YouTube, Instagram, TikTok, etc.
-    output_path = "Downloads/%(uploader)s/%(title)s.%(ext)s" 
+def process_download(job):
+    print(f"Processing job: {job['id']} - {job['original_url']}")
     
-    # Ensure Downloads folder exists (yt-dlp will create subfolders automatically)
-    if not os.path.exists("Downloads"):
-        os.makedirs("Downloads")
+    url = job['original_url']
+    
+    # User requested specific path
+    base_path = "/run/media/bapperida/DATA BAPPERIDA/YouTube VIDEOS"
+    
+    # Organize by Uploader/Channel Name
+    output_path = os.path.join(base_path, "%(uploader)s", "%(title)s.%(ext)s")
+    
+    # Ensure Base folder exists 
+    if not os.path.exists(base_path):
+        os.makedirs(base_path)
 
     ydl_opts = {
         'outtmpl': output_path,
