@@ -115,7 +115,8 @@ export const downloadMedia = async (url, platform, settings, isPlaylist, userId,
 
             if (data) {
                 // If status changed to relevant states, trigger update
-                if (['waiting_for_selection', 'completed', 'failed'].includes(data.status)) {
+                // NOW INCLUDES 'downloading' to capture progress updates via polling
+                if (['waiting_for_selection', 'downloading', 'completed', 'failed'].includes(data.status)) {
                     handleUpdate(data);
                 }
             }
