@@ -99,6 +99,15 @@ def process_job(job):
                 # Sort: Highest Resolution first
                 # We can rely on yt-dlp sorting roughly, but let's reverse to show best on top
                 formats.reverse()
+
+                # Add Audio Only Option
+                formats.insert(0, {
+                    'format_id': 'audio_only',
+                    'resolution': 'Audio Only',
+                    'ext': 'mp3',
+                    'filesize': 'Varies',
+                    'note': 'Convert to MP3'
+                })
                 
                 # Update DB
                 supabase.table('downloads').update({
@@ -131,6 +140,18 @@ def process_job(job):
         # Use selected format if available, otherwise best
         selected_format = job.get('selected_format')
         format_str = selected_format if selected_format else 'best'
+        
+        # Audio Only Logic
+        ydl_opts_extra = {}
+        if selected_format == 'audio_only':
+            format_str = 'bestaudio/best'
+            ydl_opts_extra = {
+                'postprocessors': [{
+                    'key': 'FFmpegExtractAudio',
+                    'preferredcodec': 'mp3',
+                    'preferredquality': '192',
+                }],
+            }
 
         # Progress Hook with Throttling
         last_update_time = 0
@@ -176,6 +197,7 @@ def process_job(job):
             'format': format_str,
             'quiet': False,
             'no_warnings': True,
+            **ydl_opts_extra
         }
 
         try:
