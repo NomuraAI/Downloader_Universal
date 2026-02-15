@@ -37,62 +37,65 @@ export const downloadMedia = async (url, platform, settings, isPlaylist, userId,
     const fileName = getMockFilename(url, platform);
     const fullPath = `${settings.outputPath}/${fileName}`;
 
+    let downloadId = null;
+
     // Log to Supabase if userId is present
     if (userId) {
-        const { error } = await supabase.from('downloads').insert({
+        const { data, error } = await supabase.from('downloads').insert({
             user_id: userId,
             platform: platform,
             original_url: url,
             filename: fileName,
-            status: 'processing'
-        });
+            status: 'scanning' // NEW INITIAL STATUS
+        }).select();
+
         if (error) console.error('Error logging download:', error);
+        if (data) downloadId = data[0].id;
     }
 
-    // Simulate a streaming process with multiple steps
-    const steps = [
-        { progress: 5, message: 'Connecting to server...' },
-        { progress: 10, message: `Resolving URL for ${platform}...` },
-        { progress: 15, message: 'Extracting video information...' },
-        { progress: 20, message: `[info] Title: ${fileName.replace('.mp4', '')}` },
-        { progress: 25, message: `[download] Destination: ${fileName}` },
-        { progress: 30, message: 'Starting download...' },
-        { progress: 45, message: '[download]  25.4% of 15.40MiB at 2.50MiB/s ETA 00:03' },
-        { progress: 60, message: '[download]  52.1% of 15.40MiB at 3.10MiB/s ETA 00:02' },
-        { progress: 75, message: '[download]  88.9% of 15.40MiB at 4.20MiB/s ETA 00:00' },
-        { progress: 90, message: '[download] 100% of 15.40MiB in 00:04' },
-        { progress: 95, message: '[ffmpeg] Merging formats into "' + fileName + '"' },
-        { progress: 100, message: `[download] Finished downloading ${fileName}` }
-    ];
+    if (!downloadId) return { success: false, message: "Failed to initialize download" };
 
     return new Promise((resolve, reject) => {
-        let currentStep = 0;
+        // Subscribe to changes for this specific download
+        const channel = supabase
+            .channel(`download_${downloadId}`)
+            .on(
+                'postgres_changes',
+                { event: 'UPDATE', schema: 'public', table: 'downloads', filter: `id=eq.${downloadId}` },
+                (payload) => {
+                    const newData = payload.new;
+                    console.log("[Realtime] Update:", newData);
 
-        const interval = setInterval(async () => {
-            if (currentStep >= steps.length) {
-                clearInterval(interval);
+                    // Pass updates to UI
+                    onUpdate({
+                        status: newData.status,
+                        formats: newData.available_formats,
+                        percentage: 0,
+                        log: `Status update: ${newData.status}`,
+                        downloadId: downloadId // Pass ID specifically
+                    });
 
-                // Update status to completed
-                if (userId) {
-                    await supabase.from('downloads').update({ status: 'completed' })
-                        .eq('user_id', userId)
-                        .eq('filename', fileName);
+                    if (newData.status === 'completed') {
+                        supabase.removeChannel(channel);
+                        resolve({ success: true, message: 'Download completed successfully', fileName: newData.filename, fullPath });
+                    }
+                    if (newData.status === 'failed') {
+                        supabase.removeChannel(channel);
+                        reject(new Error(newData.filename || 'Download failed'));
+                    }
                 }
+            )
+            .subscribe();
 
-                resolve({ success: true, message: 'Download completed successfully', fileName, fullPath });
-                return;
-            }
-
-            const step = steps[currentStep];
-
-            // Call the callback with the current status
-            onUpdate({
-                progress: step.progress,
-                log: step.message,
-                status: 'downloading'
-            });
-
-            currentStep++;
-        }, 800); // 800ms delay between steps to simulate time
+        // Initial log
+        onUpdate({ status: 'scanning', log: 'Scanning video formats...' });
     });
+};
+
+// Export function to select format
+export const selectFormat = async (downloadId, formatId) => {
+    await supabase.from('downloads').update({
+        status: 'processing',
+        selected_format: formatId
+    }).eq('id', downloadId);
 };

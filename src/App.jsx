@@ -16,10 +16,11 @@ import {
 import { CloudDownload, CheckCircle, Error as ErrorIcon, AutoAwesome, PlaylistPlay } from '@mui/icons-material';
 import Layout from './components/Layout';
 import DownloadStatus from './components/DownloadStatus';
+import QualitySelector from './components/QualitySelector';
 import { useApp } from './context/AppContext';
 import { useAuth } from './context/AuthContext';
 import { isPlaylist } from './utils/platform';
-import { downloadMedia } from './services/api';
+import { downloadMedia, selectFormat } from './services/api';
 
 function App() {
     const { selectedPlatform, settings } = useApp();
@@ -34,6 +35,11 @@ function App() {
     const [logs, setLogs] = useState([]);
     const [progress, setProgress] = useState(0);
 
+    // Quality Selection State
+    const [showQualitySelector, setShowQualitySelector] = useState(false);
+    const [availableFormats, setAvailableFormats] = useState([]);
+    const [currentDownloadId, setCurrentDownloadId] = useState(null); // Need to track ID for selection call
+
     // Clear state when platform changes
     useEffect(() => {
         setUrl('');
@@ -42,6 +48,9 @@ function App() {
         setPlaylistDetected(false);
         setLogs([]);
         setProgress(0);
+        setShowQualitySelector(false);
+        setAvailableFormats([]);
+        setCurrentDownloadId(null);
     }, [selectedPlatform]);
 
     useEffect(() => {
@@ -55,8 +64,9 @@ function App() {
         setLoading(true);
         setStatus('processing');
         setMessage('');
-        setLogs(['Initializing download process...']);
+        setLogs(['Initializing scan...']);
         setProgress(0);
+        setShowQualitySelector(false);
 
         try {
             if (!isValidUrl(url)) {
@@ -73,18 +83,53 @@ function App() {
                 (update) => {
                     if (update.log) setLogs(prev => [...prev, update.log]);
                     if (update.progress) setProgress(update.progress);
+
+                    // Handle Status Updates
+                    if (update.status === 'downloading') setStatus('downloading');
+                    if (update.status === 'completed') setStatus('success');
+                    if (update.status === 'failed') setStatus('error');
+
+                    // HANDLE SELECTION PHASE
+                    if (update.status === 'waiting_for_selection' && update.formats) {
+                        setAvailableFormats(update.formats);
+                        setShowQualitySelector(true);
+                        setLogs(prev => [...prev, 'Please select a quality format...']);
+                        // We need to know the ID to call selectFormat, but api.js handles it internally?
+                        // Actually, we need to refactor api.js slightly to return the ID or handle selection 
+                        // via a callback, OR we rely on the implementation where app.jsx calls selectFormat.
+                        // Ideally, downloadMedia returns the ID immediately.
+                        // For now, let's assume we can get it or verify api.js logic.
+                        // Wait, api.js as written doesn't return the ID to the caller until completion.
+                        // I will fix this by capturing the ID from the logs or modifying the API contract?
+                        // Better: API passes ID in the update object.
+                    }
+                    if (update.downloadId) {
+                        setCurrentDownloadId(update.downloadId);
+                    }
                 }
             );
 
-            setStatus('success');
-            setMessage(`Successfully saved to: ${settings.outputPath}`);
+            if (status !== 'waiting_for_selection') {
+                setStatus('success');
+                setMessage(`Successfully saved to: ${settings.outputPath}`);
+            }
 
         } catch (err) {
             setStatus('error');
             setMessage(err.message || 'Failed to start download');
             setLogs(prev => [...prev, `ERROR: ${err.message}`]);
         } finally {
-            setLoading(false);
+            if (status !== 'waiting_for_selection') {
+                setLoading(false);
+            }
+        }
+    };
+
+    const handleFormatSelect = async (formatId) => {
+        setShowQualitySelector(false);
+        setLogs(prev => [...prev, `Selected format: ${formatId}. Starting download...`]);
+        if (currentDownloadId) {
+            await selectFormat(currentDownloadId, formatId);
         }
     };
 
@@ -205,11 +250,19 @@ function App() {
                             </Fade>
                         )}
 
+                        {/* Quality Selector Dialog */}
+                        <QualitySelector
+                            open={showQualitySelector}
+                            formats={availableFormats}
+                            onSelect={handleFormatSelect}
+                            onClose={() => setShowQualitySelector(false)}
+                        />
+
                     </CardContent>
                 </Card>
 
                 <Box sx={{ mt: 4, minHeight: 60 }}>
-                    <Fade in={!!status && status !== 'processing'}>
+                    <Fade in={!!status && status !== 'processing' && status !== 'downloading'}>
                         <Alert
                             icon={status === 'success' ? <CheckCircle fontSize="inherit" /> : <ErrorIcon fontSize="inherit" />}
                             severity={status === 'success' ? 'success' : 'error'}
