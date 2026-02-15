@@ -66,7 +66,7 @@ function App() {
         setLoading(true);
         setStatus('processing');
         setMessage('');
-        setLogs(['Initializing scan...']);
+        setLogs(['Initializing scan (v1.5-Guard)...']); // Added version
         setProgress(0);
         setShowQualitySelector(false);
         selectionMadeRef.current = false; // Reset ref
@@ -94,18 +94,21 @@ function App() {
 
                     // HANDLE SELECTION PHASE
                     if (update.status === 'waiting_for_selection' && update.formats) {
+                        // Debug log
+                        console.log("Waiting for selection. Ref:", selectionMadeRef.current);
+
                         // Only show if we haven't made a selection for this flow yet
                         if (!selectionMadeRef.current) {
                             setAvailableFormats(update.formats);
-                            setShowQualitySelector(true);
-                            // Avoid duplicate logs
-                            setLogs(prev => {
-                                const last = prev[prev.length - 1];
-                                if (last !== 'Please select a quality format...') {
-                                    return [...prev, 'Please select a quality format...'];
+                            setShowQualitySelector(prev => {
+                                if (!prev) {
+                                    setLogs(l => [...l, 'Please select a quality format...']);
                                 }
-                                return prev;
+                                return true;
                             });
+                        } else {
+                            // If selection made, ensure closed
+                            setShowQualitySelector(false);
                         }
                     }
                     if (update.downloadId) {
@@ -131,11 +134,20 @@ function App() {
     };
 
     const handleFormatSelect = async (formatId) => {
+        console.log("Format Selected:", formatId);
+        selectionMadeRef.current = true; // Mark as selected immediately
         setShowQualitySelector(false);
-        setSelectionMade(true); // Mark that a selection has been made
-        setLogs(prev => [...prev, `Selected format: ${formatId}. Starting download...`]);
+
+        setLogs(prev => [...prev, `Selected format: ${formatId}. Requesting server...`]);
         if (currentDownloadId) {
-            await selectFormat(currentDownloadId, formatId);
+            try {
+                await selectFormat(currentDownloadId, formatId);
+                setLogs(prev => [...prev, `Server request sent.`]);
+            } catch (error) {
+                setLogs(prev => [...prev, `Error sending selection: ${error}`]);
+            }
+        } else {
+            setLogs(prev => [...prev, `Error: Missing Download ID`]);
         }
     };
 
