@@ -46,18 +46,58 @@ def process_job(job):
                 formats = []
                 
                 # Filter and simplify formats for UI
+                seen_resolutions = set()
                 for f in info.get('formats', []):
-                    # Only keep video+audio or distinct useful formats to reduce noise
-                    if f.get('vcodec') != 'none' and f.get('acodec') != 'none':
-                        formats.append({
-                            'format_id': f['format_id'],
-                            'resolution': f.get('resolution') or f'{f.get("width")}x{f.get("height")}',
-                            'ext': f['ext'],
-                            'filesize': f.get('filesize_approx') or f.get('filesize'),
-                            'note': f.get('format_note')
-                        })
+                    # Skip if no video
+                    if f.get('vcodec') == 'none':
+                        continue
+                        
+                    # Determine if it needs audio merging
+                    is_video_only = f.get('acodec') == 'none'
+                    
+                    # Construct smart format ID
+                    # If video-only (common for 1080p+), request merge with best audio
+                    smart_format_id = f"{f['format_id']}+bestaudio" if is_video_only else f['format_id']
+                    
+                    # Basic attributes
+                    resolution = f.get('resolution') or f'{f.get("width")}x{f.get("height")}'
+                    ext = f['ext']
+                    filesize = f.get('filesize_approx') or f.get('filesize')
+                    
+                    # Deduplication strategy:
+                    # Prefer MP4 over others for same resolution (simple heuristic)
+                    # We create a unique key for resolution.
+                    # Note: users might want specific codec, but for "Simple" UI, unique resolution is better.
+                    # We process generally from worst to best in format list usually, or reverse in the loop below.
+                    # Let's just allow all strictly, OR filter duplicates.
+                    # Let's allow all for now but maybe prioritize MP4 visually? 
+                    # Actually, simple dedupe: if 1080p mp4 exists, don't show 1080p webm
+                    
+                    res_key = f"{resolution}"
+                    if res_key in seen_resolutions and ext != 'mp4': 
+                         continue # Skip non-mp4 duplicates if we already saw one (assuming sorting helps)
+                    # Actually better to just add all unique combos of Res+Ext
+                    
+                    # Simpler filter: just ensure we have meaningful resolution
+                    if not resolution or 'audio only' in resolution: 
+                        continue
+
+                    # Human readable size
+                    size_str = "Unknown"
+                    if filesize:
+                        size_str = f"{filesize / 1024 / 1024:.1f} MB"
+
+                    formats.append({
+                        'format_id': smart_format_id,
+                        'resolution': resolution,
+                        'ext': ext,
+                        'filesize': size_str,
+                        'note': f.get('format_note')
+                    })
+                    seen_resolutions.add(res_key)
                 
-                # Sort best to worst roughly
+                # Sort: Highest Resolution first
+                # We can rely on yt-dlp sorting roughly, but let's reverse to show best on top
                 formats.reverse()
                 
                 # Update DB
