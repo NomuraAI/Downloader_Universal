@@ -1,0 +1,198 @@
+import React, { useState, useEffect } from 'react';
+import {
+    Box,
+    Button,
+    Card,
+    CardContent,
+    CircularProgress,
+    Container,
+    TextField,
+    Typography,
+    Alert,
+    Fade,
+    Chip,
+    Stack
+} from '@mui/material';
+import { CloudDownload, CheckCircle, Error as ErrorIcon, AutoAwesome, PlaylistPlay } from '@mui/icons-material';
+import Layout from './components/Layout';
+import { useApp } from './context/AppContext';
+import { isPlaylist } from './utils/platform';
+
+function App() {
+    const { selectedPlatform, settings } = useApp();
+    const [url, setUrl] = useState('');
+    const [loading, setLoading] = useState(false);
+    const [status, setStatus] = useState(null);
+    const [message, setMessage] = useState('');
+    const [playlistDetected, setPlaylistDetected] = useState(false);
+
+    // Clear state when platform changes
+    useEffect(() => {
+        setUrl('');
+        setStatus(null);
+        setMessage('');
+        setPlaylistDetected(false);
+    }, [selectedPlatform]);
+
+    useEffect(() => {
+        setPlaylistDetected(isPlaylist(url));
+    }, [url]);
+
+    const handleDownload = async (e) => {
+        e.preventDefault();
+        if (!url) return;
+
+        setLoading(true);
+        setStatus(null);
+        setMessage('');
+
+        try {
+            if (!isValidUrl(url)) {
+                throw new Error('Please enter a valid URL');
+            }
+
+            // Simulate download with settings
+            console.log(`Starting download for ${selectedPlatform} with settings:`, { ...settings, isPlaylist: playlistDetected });
+
+            // Mock API latency
+            await new Promise(resolve => setTimeout(resolve, 2500));
+
+            setStatus('success');
+            setMessage(`Successfully started download for ${selectedPlatform} ${playlistDetected ? '(Playlist)' : ''}! Check ${settings.outputPath} folder.`);
+
+        } catch (err) {
+            setStatus('error');
+            setMessage(err.message || 'Failed to start download');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const isValidUrl = (string) => {
+        try {
+            new URL(string);
+            return true;
+        } catch (_) {
+            return false;
+        }
+    };
+
+    const getPlaceholder = () => {
+        switch (selectedPlatform) {
+            case 'YouTube': return 'Paste YouTube video or playlist URL...';
+            case 'Shorts': return 'Paste YouTube Shorts URL...';
+            case 'Instagram': return 'Paste Instagram post/reel URL...';
+            case 'Threads': return 'Paste Threads link...';
+            case 'Facebook': return 'Paste Facebook video URL...';
+            case 'TikTok': return 'Paste TikTok video URL...';
+            default: return 'Paste any supported URL...';
+        }
+    };
+
+    return (
+        <Layout>
+            <Container maxWidth="md">
+                <Box sx={{ textAlign: 'center', mb: 8 }}>
+                    <Stack direction="row" spacing={1} justifyContent="center" mb={2}>
+                        <Chip
+                            icon={<AutoAwesome />}
+                            label={`Engine: yt-dlp | Mode: ${selectedPlatform}`}
+                            color="primary"
+                            variant="outlined"
+                            sx={{ borderRadius: 2 }}
+                        />
+                        {playlistDetected && (
+                            <Chip
+                                icon={<PlaylistPlay />}
+                                label="Playlist Detected"
+                                color="secondary"
+                                variant="filled"
+                                sx={{ borderRadius: 2 }}
+                            />
+                        )}
+                    </Stack>
+
+                    <Typography variant="h2" component="h1" gutterBottom sx={{
+                        fontWeight: 800,
+                        background: selectedPlatform === 'TikTok' ? 'linear-gradient(45deg, #00f2ea 30%, #ff0050 90%)' : 'linear-gradient(45deg, #2196F3 30%, #21CBF3 90%)',
+                        WebkitBackgroundClip: 'text',
+                        WebkitTextFillColor: 'transparent',
+                        textTransform: 'uppercase',
+                        letterSpacing: '-1px'
+                    }}>
+                        {selectedPlatform === 'Universal' ? 'Universal Downloader' : `${selectedPlatform} Downloader`}
+                    </Typography>
+                    <Typography variant="h6" color="text.secondary">
+                        {selectedPlatform === 'Universal'
+                            ? 'Download video & audio from all supported platforms in high quality.'
+                            : `Specialized downloader for ${selectedPlatform} content.`}
+                    </Typography>
+                </Box>
+
+                <Card sx={{
+                    p: 3,
+                    borderRadius: 6,
+                    background: 'rgba(30, 30, 30, 0.6)',
+                    backdropFilter: 'blur(20px)',
+                    border: '1px solid rgba(255, 255, 255, 0.05)',
+                    boxShadow: '0 8px 32px 0 rgba(0, 0, 0, 0.37)'
+                }}>
+                    <CardContent>
+                        <form onSubmit={handleDownload}>
+                            <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, gap: 2 }}>
+                                <TextField
+                                    fullWidth
+                                    variant="outlined"
+                                    placeholder={getPlaceholder()}
+                                    value={url}
+                                    onChange={(e) => setUrl(e.target.value)}
+                                    disabled={loading}
+                                    sx={{
+                                        '& .MuiOutlinedInput-root': {
+                                            borderRadius: 3,
+                                            height: '56px',
+                                            bgcolor: 'background.paper'
+                                        }
+                                    }}
+                                />
+                                <Button
+                                    type="submit"
+                                    variant="contained"
+                                    size="large"
+                                    disabled={loading || !url}
+                                    startIcon={loading ? <CircularProgress size={20} color="inherit" /> : <CloudDownload />}
+                                    sx={{
+                                        px: 4,
+                                        minWidth: '160px',
+                                        borderRadius: 3,
+                                        fontSize: '1.1rem',
+                                        fontWeight: 700,
+                                        textTransform: 'none',
+                                        boxShadow: '0 4px 14px 0 rgba(33, 150, 243, 0.39)'
+                                    }}
+                                >
+                                    {loading ? 'Processing' : 'Download'}
+                                </Button>
+                            </Box>
+                        </form>
+                    </CardContent>
+                </Card>
+
+                <Box sx={{ mt: 4, minHeight: 60 }}>
+                    <Fade in={!!status}>
+                        <Alert
+                            icon={status === 'success' ? <CheckCircle fontSize="inherit" /> : <ErrorIcon fontSize="inherit" />}
+                            severity={status === 'success' ? 'success' : 'error'}
+                            variant="filled"
+                            sx={{ borderRadius: 3, width: '100%', alignItems: 'center' }}
+                        >
+                            {message}
+                        </Alert>
+                    </Fade>
+                </Box>
+            </Container>
+        </Layout>
+    );
+}
+
+export default App;
