@@ -1,3 +1,5 @@
+import { supabase } from '../utils/supabaseClient';
+
 // This service would communicate with a local backend server running yt-dlp
 // For now, it mocks the interaction.
 
@@ -29,11 +31,23 @@ const getMockFilename = (url, platform) => {
     }
 };
 
-export const downloadMedia = async (url, platform, settings, isPlaylist, onUpdate) => {
-    console.log(`[API] Requesting download:`, { url, platform, settings, isPlaylist });
+export const downloadMedia = async (url, platform, settings, isPlaylist, userId, onUpdate) => {
+    console.log(`[API] Requesting download:`, { url, platform, settings, isPlaylist, userId });
 
     const fileName = getMockFilename(url, platform);
     const fullPath = `${settings.outputPath}/${fileName}`;
+
+    // Log to Supabase if userId is present
+    if (userId) {
+        const { error } = await supabase.from('downloads').insert({
+            user_id: userId,
+            platform: platform,
+            original_url: url,
+            filename: fileName,
+            status: 'processing'
+        });
+        if (error) console.error('Error logging download:', error);
+    }
 
     // Simulate a streaming process with multiple steps
     const steps = [
@@ -54,9 +68,17 @@ export const downloadMedia = async (url, platform, settings, isPlaylist, onUpdat
     return new Promise((resolve, reject) => {
         let currentStep = 0;
 
-        const interval = setInterval(() => {
+        const interval = setInterval(async () => {
             if (currentStep >= steps.length) {
                 clearInterval(interval);
+
+                // Update status to completed
+                if (userId) {
+                    await supabase.from('downloads').update({ status: 'completed' })
+                        .eq('user_id', userId)
+                        .eq('filename', fileName);
+                }
+
                 resolve({ success: true, message: 'Download completed successfully', fileName, fullPath });
                 return;
             }

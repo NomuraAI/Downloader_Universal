@@ -17,11 +17,13 @@ import { CloudDownload, CheckCircle, Error as ErrorIcon, AutoAwesome, PlaylistPl
 import Layout from './components/Layout';
 import DownloadStatus from './components/DownloadStatus';
 import { useApp } from './context/AppContext';
+import { useAuth } from './context/AuthContext';
 import { isPlaylist } from './utils/platform';
 import { downloadMedia } from './services/api';
 
 function App() {
     const { selectedPlatform, settings } = useApp();
+    const { user } = useAuth();
     const [url, setUrl] = useState('');
     const [loading, setLoading] = useState(false);
     const [status, setStatus] = useState(null);
@@ -67,6 +69,7 @@ function App() {
                 selectedPlatform,
                 settings,
                 playlistDetected,
+                user?.id,
                 (update) => {
                     if (update.log) setLogs(prev => [...prev, update.log]);
                     if (update.progress) setProgress(update.progress);
