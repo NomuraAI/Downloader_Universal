@@ -38,7 +38,8 @@ function App() {
     // Quality Selection State
     const [showQualitySelector, setShowQualitySelector] = useState(false);
     const [availableFormats, setAvailableFormats] = useState([]);
-    const [currentDownloadId, setCurrentDownloadId] = useState(null); // Need to track ID for selection call
+    const [currentDownloadId, setCurrentDownloadId] = useState(null);
+    const selectionMadeRef = useRef(false); // Use ref to track selection loop
 
     // Clear state when platform changes
     useEffect(() => {
@@ -51,6 +52,7 @@ function App() {
         setShowQualitySelector(false);
         setAvailableFormats([]);
         setCurrentDownloadId(null);
+        selectionMadeRef.current = false;
     }, [selectedPlatform]);
 
     useEffect(() => {
@@ -67,6 +69,7 @@ function App() {
         setLogs(['Initializing scan...']);
         setProgress(0);
         setShowQualitySelector(false);
+        selectionMadeRef.current = false; // Reset ref
 
         try {
             if (!isValidUrl(url)) {
@@ -91,17 +94,19 @@ function App() {
 
                     // HANDLE SELECTION PHASE
                     if (update.status === 'waiting_for_selection' && update.formats) {
-                        setAvailableFormats(update.formats);
-                        setShowQualitySelector(true);
-                        setLogs(prev => [...prev, 'Please select a quality format...']);
-                        // We need to know the ID to call selectFormat, but api.js handles it internally?
-                        // Actually, we need to refactor api.js slightly to return the ID or handle selection 
-                        // via a callback, OR we rely on the implementation where app.jsx calls selectFormat.
-                        // Ideally, downloadMedia returns the ID immediately.
-                        // For now, let's assume we can get it or verify api.js logic.
-                        // Wait, api.js as written doesn't return the ID to the caller until completion.
-                        // I will fix this by capturing the ID from the logs or modifying the API contract?
-                        // Better: API passes ID in the update object.
+                        // Only show if we haven't made a selection for this flow yet
+                        if (!selectionMadeRef.current) {
+                            setAvailableFormats(update.formats);
+                            setShowQualitySelector(true);
+                            // Avoid duplicate logs
+                            setLogs(prev => {
+                                const last = prev[prev.length - 1];
+                                if (last !== 'Please select a quality format...') {
+                                    return [...prev, 'Please select a quality format...'];
+                                }
+                                return prev;
+                            });
+                        }
                     }
                     if (update.downloadId) {
                         setCurrentDownloadId(update.downloadId);
@@ -127,6 +132,7 @@ function App() {
 
     const handleFormatSelect = async (formatId) => {
         setShowQualitySelector(false);
+        setSelectionMade(true); // Mark that a selection has been made
         setLogs(prev => [...prev, `Selected format: ${formatId}. Starting download...`]);
         if (currentDownloadId) {
             await selectFormat(currentDownloadId, formatId);
