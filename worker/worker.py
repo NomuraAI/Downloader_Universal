@@ -127,15 +127,29 @@ def process_job(job):
 
     # --- DOWNLOAD PHASE ---
     if job['status'] == 'processing':
-        # User requested specific path
-        base_path = "/run/media/bapperida/DATA BAPPERIDA/YouTube VIDEOS"
+        # Determine Base Path
+        # 1. Environment Variable
+        base_path = os.getenv("DOWNLOAD_ROOT")
         
+        # 2. Android (Termux) Detection
+        if not base_path and "ANDROID_ROOT" in os.environ:
+             base_path = "/storage/emulated/0/Download/UniversalDownloader"
+        
+        # 3. Default PC Path (Fallback)
+        if not base_path:
+            base_path = "/run/media/bapperida/DATA BAPPERIDA/YouTube VIDEOS"
+        
+        print(f"--> Saving to: {base_path}")
+
         # Organize by Uploader/Channel Name
         output_path = os.path.join(base_path, "%(uploader)s", "%(title)s.%(ext)s")
         
         # Ensure Base folder exists 
         if not os.path.exists(base_path):
-            os.makedirs(base_path)
+            try:
+                os.makedirs(base_path, exist_ok=True)
+            except Exception as e:
+                print(f"Warning: Could not create base path {base_path}: {e}")
 
         # Use selected format if available, otherwise best
         selected_format = job.get('selected_format')
