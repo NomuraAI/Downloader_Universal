@@ -127,17 +127,27 @@ def process_job(job):
 
     # --- DOWNLOAD PHASE ---
     if job['status'] == 'processing':
-        # Determine Base Path
-        # 1. Environment Variable
-        base_path = os.getenv("DOWNLOAD_ROOT")
-        
-        # 2. Android (Termux) Detection
-        if not base_path and "ANDROID_ROOT" in os.environ:
-             base_path = "/storage/emulated/0/Download/UniversalDownloader"
-        
-        # 3. Default PC Path (Fallback)
-        if not base_path:
-            base_path = "/run/media/bapperida/DATA BAPPERIDA/YouTube VIDEOS"
+        # Smart Path Detection Logic
+        def get_download_path():
+            # 1. Environment Variable (Highest Priority)
+            env_path = os.getenv("DOWNLOAD_ROOT")
+            if env_path:
+                return env_path
+            
+            # 2. Android (Termux) Detection
+            # Termux usually has PREFIX set to /data/data/com.termux/files/usr
+            if "ANDROID_ROOT" in os.environ or "TERMUX_VERSION" in os.environ:
+                 return "/storage/emulated/0/Download/UniversalDownloader"
+            
+            # 3. Windows Detection
+            if os.name == 'nt':
+                return os.path.join(os.environ['USERPROFILE'], 'Downloads', 'UniversalDownloader')
+            
+            # 4. Linux / Unix Detection
+            # Default to ~/Downloads/UniversalDownloader
+            return os.path.join(os.path.expanduser('~'), 'Downloads', 'UniversalDownloader')
+
+        base_path = get_download_path()
         
         print(f"--> Saving to: {base_path}")
 
