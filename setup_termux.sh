@@ -11,8 +11,8 @@ sleep 2
 echo "Updating packages..."
 pkg update -y && pkg upgrade -y
 
-echo "Installing dependencies (Python, FFmpeg, Git, OpenSSL)..."
-pkg install python ffmpeg git openssl -y
+echo "Installing dependencies (Python, FFmpeg, Git, OpenSSL, Rust)..."
+pkg install python ffmpeg git openssl rust binutils -y
 
 # Ensure we are in the project directory (where this script is located)
 PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
