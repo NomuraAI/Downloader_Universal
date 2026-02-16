@@ -219,7 +219,7 @@ def process_job(job):
             supabase.table('downloads').update({
                 'status': 'downloading', 
                 'progress': 0,
-                'last_log': "Starting download engine..."
+                'last_log': f"Starting download to: {base_path}"
             }).eq('id', job['id']).execute()
 
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
