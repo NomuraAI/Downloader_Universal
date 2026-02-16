@@ -14,14 +14,19 @@ pkg update -y && pkg upgrade -y
 echo "Installing dependencies (Python, FFmpeg, Git, OpenSSL)..."
 pkg install python ffmpeg git openssl -y
 
-# Navigate to home
-cd $HOME
+# Ensure we are in the project directory (where this script is located)
+PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$PROJECT_DIR"
 
-# Check if repo exists, if not clone it (Assuming user needs to clone or copy)
-# For now, we assume this script is inside the folder user copied.
-# But if coming from git:
-# git clone <YOUR_REPO_URL> downloader
-# cd downloader
+echo "Working directory: $(pwd)"
+
+# Check if requirements exist before proceeding
+if [ ! -f "worker/requirements.txt" ]; then
+    echo "ERROR: worker/requirements.txt not found!"
+    echo "Make sure you are running this script from inside the 'Downloader_Universal' folder."
+    exit 1
+fi
+
 
 echo "Setting up Python Virtual Environment..."
 if [ ! -d "worker/venv" ]; then
