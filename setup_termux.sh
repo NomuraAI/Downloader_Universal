@@ -36,12 +36,4 @@ echo "Setup Complete!"
 echo "To start the downloader, run:"
 echo "./start_android.sh"
 
-# Create a start script for Android specifically
-cat <<EOF > start_android.sh
-#!/bin/bash
-echo "Starting Universal Downloader Node..."
-export PYTHONUNBUFFERED=1
-./worker/venv/bin/python worker/worker.py
-EOF
 
-chmod +x start_android.sh
