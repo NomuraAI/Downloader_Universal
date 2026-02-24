@@ -54,12 +54,18 @@ export LDFLAGS="-L/data/data/com.termux/files/usr/lib/"
 export CFLAGS="-I/data/data/com.termux/files/usr/include/"
 export CXXFLAGS="-I/data/data/com.termux/files/usr/include/"
 
+# Export Rust/Maturin build flags for pydantic-core
+export ANDROID_API_LEVEL=24
+export CARGO_BUILD_TARGET="$(rustc -vV | sed -n 's|host: ||p')"
+export PYO3_CROSS_LIB_DIR="/data/data/com.termux/files/usr/lib"
+export PYO3_CROSS_INCLUDE_DIR="/data/data/com.termux/files/usr/include/python$(python -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')"
+
 echo "Upgrading base Python build tools..."
-./worker/venv/bin/pip install --upgrade pip setuptools wheel build
+./worker/venv/bin/pip install --upgrade pip setuptools wheel build maturin
 
 echo "Installing pre-built Android wheels for pydantic-core..."
 # Use pre-built wheels specifically for Termux Android provided by Eutalix
-./worker/venv/bin/pip install "pydantic-core" --extra-index-url https://eutalix.github.io/android-pydantic-core/simple/
+./worker/venv/bin/pip install "pydantic-core" --extra-index-url https://eutalix.github.io/android-pydantic-core/simple/ || echo "Pre-built wheel failed, will build from source."
 
 echo "Installing remaining Python Libraries (This may take a few minutes)..."
 ./worker/venv/bin/pip install -r worker/requirements.txt
