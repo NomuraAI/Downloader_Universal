@@ -12,7 +12,7 @@ echo "Updating packages..."
 pkg update -y && pkg upgrade -y
 
 echo "Installing dependencies (Python, FFmpeg, Git, OpenSSL, Rust, Build Essentials, wget, libcrypt, etc)..."
-pkg install python ffmpeg git openssl rust binutils build-essential libffi pkg-config wget libcrypt libjpeg-turbo -y
+pkg install python ffmpeg git openssl rust binutils build-essential libffi pkg-config wget libcrypt libjpeg-turbo clang make cmake -y
 
 # Ensure we are in the project directory (where this script is located)
 PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -48,6 +48,12 @@ fi
 
 python -m venv worker/venv
 
+# Export build flags to safely compile Python C-extensions in Termux
+export MATHLIB="m"
+export LDFLAGS="-L/data/data/com.termux/files/usr/lib/"
+export CFLAGS="-I/data/data/com.termux/files/usr/include/"
+export CXXFLAGS="-I/data/data/com.termux/files/usr/include/"
+
 echo "Upgrading base Python build tools..."
 ./worker/venv/bin/pip install --upgrade pip setuptools wheel build
 
@@ -55,7 +61,7 @@ echo "Installing pre-built Android wheels for pydantic-core..."
 # Use pre-built wheels specifically for Termux Android provided by Eutalix
 ./worker/venv/bin/pip install "pydantic-core" --extra-index-url https://eutalix.github.io/android-pydantic-core/simple/
 
-echo "Installing remaining Python Libraries..."
+echo "Installing remaining Python Libraries (This may take a few minutes)..."
 ./worker/venv/bin/pip install -r worker/requirements.txt
 
 echo "Setup Complete!"
