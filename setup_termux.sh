@@ -11,8 +11,8 @@ sleep 2
 echo "Updating packages..."
 pkg update -y && pkg upgrade -y
 
-echo "Installing dependencies (Python, FFmpeg, Git, OpenSSL, Rust, Build Essentials)..."
-pkg install python ffmpeg git openssl rust binutils build-essential libffi pkg-config -y
+echo "Installing dependencies (Python, FFmpeg, Git, OpenSSL, Rust, Build Essentials, Pydantic)..."
+pkg install python ffmpeg git openssl rust binutils build-essential libffi pkg-config python-pydantic -y
 
 # Ensure we are in the project directory (where this script is located)
 PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -37,9 +37,13 @@ fi
 
 
 echo "Setting up Python Virtual Environment..."
-if [ ! -d "worker/venv" ]; then
-    python -m venv worker/venv
+# Remove existing venv to ensure we build it with system-site-packages enabled
+if [ -d "worker/venv" ]; then
+    echo "Removing old virtual environment to apply new settings..."
+    rm -rf worker/venv
 fi
+
+python -m venv --system-site-packages worker/venv
 
 echo "Installing Python Libraries..."
 ./worker/venv/bin/pip install --upgrade pip setuptools wheel
