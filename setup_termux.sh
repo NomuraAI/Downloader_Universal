@@ -11,12 +11,20 @@ sleep 2
 echo "Updating packages..."
 pkg update -y && pkg upgrade -y
 
-echo "Installing dependencies (Python, FFmpeg, Git, OpenSSL, Rust)..."
-pkg install python ffmpeg git openssl rust binutils -y
+echo "Installing dependencies (Python, FFmpeg, Git, OpenSSL, Rust, Build Essentials)..."
+pkg install python ffmpeg git openssl rust binutils build-essential libffi pkg-config -y
 
 # Ensure we are in the project directory (where this script is located)
 PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$PROJECT_DIR"
+
+# Anti-storage warning (Termux can't execute in /sdcard)
+if [[ "$(pwd)" == *"/sdcard"* ]] || [[ "$(pwd)" == *"/storage/emulated"* ]]; then
+    echo "WARNING: You are running this script from shared storage (/sdcard)."
+    echo "Termux cannot execute scripts or run virtual environments in shared storage due to Android permissions."
+    echo "Please move this folder to Termux home directory: mv $(pwd) \$HOME/"
+    exit 1
+fi
 
 echo "Working directory: $(pwd)"
 
@@ -34,7 +42,7 @@ if [ ! -d "worker/venv" ]; then
 fi
 
 echo "Installing Python Libraries..."
-./worker/venv/bin/pip install --upgrade pip
+./worker/venv/bin/pip install --upgrade pip setuptools wheel
 ./worker/venv/bin/pip install -r worker/requirements.txt
 
 echo "Setup Complete!"
