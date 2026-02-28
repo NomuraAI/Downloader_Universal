@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Configuration
-PROJECT_DIR="/run/media/bapperida/DATA BAPPERIDA/PROJEK APPS/Downloader_Universal"
+PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 APP_URL="https://downloader-universal-mu.vercel.app"
 
 # Colors
