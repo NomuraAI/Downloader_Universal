@@ -14,20 +14,30 @@ echo -e "${BLUE}=== Universal Downloader Launcher ===${NC}"
 # Navigate to project directory
 cd "$PROJECT_DIR" || { echo "Directory not found!"; exit 1; }
 
-echo -e "${GREEN}[1/2] Starting Download Engine (Worker)...${NC}"
+
+echo -e "${GREEN}[1/3] Setting up Python Environment...${NC}"
+VENV_DIR="worker/venv"
+if [ ! -d "$VENV_DIR" ]; then
+    echo "Creating virtual environment..."
+    python3 -m venv "$VENV_DIR"
+fi
+"$VENV_DIR/bin/pip" install --upgrade pip > /dev/null
+"$VENV_DIR/bin/pip" install -r worker/requirements.txt > /dev/null
+
+echo -e "${GREEN}[2/3] Starting Download Engine (Worker)...${NC}"
 
 # Kill any existing workers to prevent duplicates
 pkill -f "worker/worker.py" 2>/dev/null
 
 # Activate venv and run worker in background
 export PYTHONUNBUFFERED=1
-./worker/venv/bin/python worker/worker.py &
+"$VENV_DIR/bin/python" worker/worker.py &
 WORKER_PID=$!
 
 # Wait a second to ensure it started
 sleep 2
 
-echo -e "${GREEN}[2/2] Opening Web Application...${NC}"
+echo -e "${GREEN}[3/3] Opening Web Application...${NC}"
 xdg-open "$APP_URL" > /dev/null 2>&1
 
 echo -e "${BLUE}---------------------------------------${NC}"
