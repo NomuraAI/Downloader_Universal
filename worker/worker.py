@@ -8,8 +8,10 @@ from supabase import create_client, Client
 from dotenv import load_dotenv
 import yt_dlp
 
-# Load environment variables
-load_dotenv()
+from pathlib import Path
+# Load environment variables from project root
+env_path = Path(__file__).parent.parent / '.env'
+load_dotenv(dotenv_path=env_path)
 
 SUPABASE_URL = os.getenv("VITE_SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY") # Prefer Service Role Key for backend
@@ -56,8 +58,10 @@ def process_job(job):
                 ydl_opts['cookiefile'] = cookies_path
             
             # Check for browser cookies
-            cookies_browser = os.getenv("YT_DLP_COOKIES_BROWSER")
-            if cookies_browser:
+            cookies_browser_env = os.getenv("YT_DLP_COOKIES_BROWSER")
+            if cookies_browser_env:
+                # Use the first browser from the list if multiple are provided
+                cookies_browser = cookies_browser_env.split(',')[0].strip()
                 print(f"--> [AUTH] Using cookies from browser: {cookies_browser}")
                 ydl_opts['cookiesfrombrowser'] = cookies_browser
             
@@ -268,8 +272,10 @@ def process_job(job):
             ydl_opts['cookiefile'] = cookies_path
 
         # Check for browser cookies
-        cookies_browser = os.getenv("YT_DLP_COOKIES_BROWSER")
-        if cookies_browser:
+        cookies_browser_env = os.getenv("YT_DLP_COOKIES_BROWSER")
+        if cookies_browser_env:
+            # Use the first browser from the list if multiple are provided
+            cookies_browser = cookies_browser_env.split(',')[0].strip()
             print(f"--> [AUTH] Using cookies for download from browser: {cookies_browser}")
             ydl_opts['cookiesfrombrowser'] = cookies_browser
 
