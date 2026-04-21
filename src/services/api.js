@@ -66,7 +66,8 @@ export const downloadMedia = async (url, platform, settings, isPlaylist, userId,
             const updatePayload = {
                 status: newData.status,
                 formats: newData.available_formats,
-                percentage: newData.progress || 0,
+                progress: newData.progress || 0, // renamed percentage to progress for consistency
+                filename: newData.filename,
                 downloadId: downloadId
             };
 

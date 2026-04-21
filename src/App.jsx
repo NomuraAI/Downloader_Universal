@@ -77,7 +77,7 @@ function App() {
             }
 
             // Call API with callback for updates
-            await downloadMedia(
+            const result = await downloadMedia(
                 url,
                 selectedPlatform,
                 settings,
@@ -87,11 +87,9 @@ function App() {
                     // Update Logs with deduplication
                     if (update.log) {
                         setLogs(prev => {
-                            // If the new log is identical to the last one, ignore it
                             if (prev.length > 0 && prev[prev.length - 1] === update.log) {
                                 return prev;
                             }
-                            // Also ignore if it's just "Status: downloading" repeated
                             if (update.log === 'Status: downloading' && prev.some(l => l.includes('Downloading:'))) {
                                 return prev;
                             }
@@ -99,19 +97,20 @@ function App() {
                         });
                     }
 
-                    if (update.progress) setProgress(update.progress);
+                    if (update.progress !== undefined) setProgress(update.progress);
 
                     // Handle Status Updates
                     if (update.status === 'downloading') setStatus('downloading');
-                    if (update.status === 'completed') setStatus('success');
+                    if (update.status === 'completed') {
+                        setStatus('success');
+                        if (update.filename) {
+                            setMessage(`Successfully saved to: ${update.filename}`);
+                        }
+                    }
                     if (update.status === 'failed') setStatus('error');
 
                     // HANDLE SELECTION PHASE
                     if (update.status === 'waiting_for_selection' && update.formats) {
-                        // Debug log
-                        console.log("Waiting for selection. Ref:", selectionMadeRef.current);
-
-                        // Only show if we haven't made a selection for this flow yet
                         if (!selectionMadeRef.current) {
                             setAvailableFormats(update.formats);
                             setShowQualitySelector(prev => {
@@ -121,7 +120,6 @@ function App() {
                                 return true;
                             });
                         } else {
-                            // If selection made, ensure closed
                             setShowQualitySelector(false);
                         }
                     }
@@ -131,9 +129,9 @@ function App() {
                 }
             );
 
-            if (status !== 'waiting_for_selection') {
+            if (status !== 'waiting_for_selection' && result?.success) {
                 setStatus('success');
-                setMessage(`Successfully saved to: ${settings.outputPath}`);
+                setMessage(`Successfully saved to: ${result.fileName}`);
             }
 
         } catch (err) {

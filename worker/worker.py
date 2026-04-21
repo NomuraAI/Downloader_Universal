@@ -2,6 +2,8 @@ import os
 import time
 import json
 import asyncio
+import subprocess
+import platform
 from supabase import create_client, Client
 from dotenv import load_dotenv
 import yt_dlp
@@ -141,31 +143,43 @@ def process_job(job):
                 return env_path
             
             # 2. Android (Termux) Detection
-            # Termux usually has PREFIX set to /data/data/com.termux/files/usr
             if "ANDROID_ROOT" in os.environ or "TERMUX_VERSION" in os.environ:
+                 # Prefer ~/storage/downloads (symlink created by termux-setup-storage)
+                 termux_storage = os.path.expanduser('~/storage/downloads')
+                 if os.path.exists(termux_storage):
+                     return os.path.join(termux_storage, 'UniversalDownloader')
                  return "/storage/emulated/0/Download/UniversalDownloader"
             
             # 3. Windows Detection
-            if os.name == 'nt':
-                return os.path.join(os.environ['USERPROFILE'], 'Downloads', 'UniversalDownloader')
+            if os.name == 'nt' or platform.system() == 'Windows':
+                return os.path.join(os.environ.get('USERPROFILE', os.path.expanduser('~')), 'Downloads', 'UniversalDownloader')
             
             # 4. Linux / Unix Detection
-            # Default to ~/Downloads/UniversalDownloader
+            try:
+                # Use xdg-user-dir if available
+                result = subprocess.check_output(['xdg-user-dir', 'DOWNLOAD'], stderr=subprocess.STDOUT).decode('utf-8').strip()
+                if result and os.path.exists(result):
+                    return os.path.join(result, 'UniversalDownloader')
+            except Exception:
+                pass
+
+            # Fallback to default ~/Downloads
             return os.path.join(os.path.expanduser('~'), 'Downloads', 'UniversalDownloader')
 
         base_path = get_download_path()
         
-        print(f"--> Saving to: {base_path}")
-
         # Organize by Uploader/Channel Name
-        output_path = os.path.join(base_path, "%(uploader)s", "%(title)s.%(ext)s")
+        # We use a template that yt-dlp understands
+        output_template = os.path.join(base_path, "%(uploader)s", "%(title)s.%(ext)s")
         
+        print(f"--> Target Base Path: {base_path}")
+        print(f"--> Output Template: {output_template}")
+
         # Ensure Base folder exists 
-        if not os.path.exists(base_path):
-            try:
-                os.makedirs(base_path, exist_ok=True)
-            except Exception as e:
-                print(f"Warning: Could not create base path {base_path}: {e}")
+        try:
+            os.makedirs(base_path, exist_ok=True)
+        except Exception as e:
+            print(f"Warning: Could not create base path {base_path}: {e}")
 
         # Use selected format if available, otherwise best
         selected_format = job.get('selected_format')
@@ -222,7 +236,7 @@ def process_job(job):
                 }).eq('id', job['id']).execute()
 
         ydl_opts = {
-            'outtmpl': output_path,
+            'outtmpl': output_template,
             'progress_hooks': [db_progress_hook],
             'format': format_str,
             'quiet': False,
@@ -249,7 +263,7 @@ def process_job(job):
                     'status': 'completed',
                     'filename': filename,
                     'progress': 100,
-                    'last_log': "Download Complete!"
+                    'last_log': f"Download Complete! Saved to: {filename}"
                 }).eq('id', job['id']).execute()
 
         except Exception as e:
