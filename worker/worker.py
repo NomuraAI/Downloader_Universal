@@ -55,6 +55,12 @@ def process_job(job):
                 print(f"--> [AUTH] Using cookies from: {cookies_path}")
                 ydl_opts['cookiefile'] = cookies_path
             
+            # Check for browser cookies
+            cookies_browser = os.getenv("YT_DLP_COOKIES_BROWSER")
+            if cookies_browser:
+                print(f"--> [AUTH] Using cookies from browser: {cookies_browser}")
+                ydl_opts['cookiesfrombrowser'] = cookies_browser
+            
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 info = ydl.extract_info(url, download=False)
                 print(f"--> [SCAN DONE] Info extracted. Title: {info.get('title')}")
@@ -260,6 +266,12 @@ def process_job(job):
         if os.path.exists(cookies_path):
             print(f"--> [AUTH] Using cookies for download from: {cookies_path}")
             ydl_opts['cookiefile'] = cookies_path
+
+        # Check for browser cookies
+        cookies_browser = os.getenv("YT_DLP_COOKIES_BROWSER")
+        if cookies_browser:
+            print(f"--> [AUTH] Using cookies for download from browser: {cookies_browser}")
+            ydl_opts['cookiesfrombrowser'] = cookies_browser
 
         try:
             # Update status to downloading start
