@@ -1,4 +1,0 @@
-yt-dlp
-supabase==2.5.0
-python-dotenv
-requests
