@@ -63,7 +63,7 @@ def process_job(job):
                 # Use the first browser from the list if multiple are provided
                 cookies_browser = cookies_browser_env.split(',')[0].strip()
                 print(f"--> [AUTH] Using cookies from browser: {cookies_browser}")
-                ydl_opts['cookiesfrombrowser'] = cookies_browser
+                ydl_opts['cookiesfrombrowser'] = (cookies_browser,)
             
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 info = ydl.extract_info(url, download=False)
@@ -277,7 +277,7 @@ def process_job(job):
             # Use the first browser from the list if multiple are provided
             cookies_browser = cookies_browser_env.split(',')[0].strip()
             print(f"--> [AUTH] Using cookies for download from browser: {cookies_browser}")
-            ydl_opts['cookiesfrombrowser'] = cookies_browser
+            ydl_opts['cookiesfrombrowser'] = (cookies_browser,)
 
         try:
             # Update status to downloading start
