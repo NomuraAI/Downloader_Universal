@@ -41,13 +41,20 @@ def process_job(job):
     if job['status'] == 'scanning':
         try:
             print(f"--> [SCAN START] Fetching info for: {url}")
-            # Use noplaylist to avoid hanging on large playlists during metadata scan
+            # Check for cookies.txt in project root
+            cookies_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'cookies.txt')
+            
             ydl_opts = {
                 'quiet': True, 
                 'no_warnings': True,
                 'noplaylist': True,
                 'extract_flat': 'in_playlist' # Faster extraction
             }
+            
+            if os.path.exists(cookies_path):
+                print(f"--> [AUTH] Using cookies from: {cookies_path}")
+                ydl_opts['cookiefile'] = cookies_path
+            
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 info = ydl.extract_info(url, download=False)
                 print(f"--> [SCAN DONE] Info extracted. Title: {info.get('title')}")
@@ -238,6 +245,9 @@ def process_job(job):
                     'last_log': "Download finished. Merging formats..."
                 }).eq('id', job['id']).execute()
 
+        # Check for cookies.txt in project root
+        cookies_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'cookies.txt')
+
         ydl_opts = {
             'outtmpl': output_template,
             'progress_hooks': [db_progress_hook],
@@ -246,6 +256,10 @@ def process_job(job):
             'no_warnings': True,
             **ydl_opts_extra
         }
+
+        if os.path.exists(cookies_path):
+            print(f"--> [AUTH] Using cookies for download from: {cookies_path}")
+            ydl_opts['cookiefile'] = cookies_path
 
         try:
             # Update status to downloading start
