@@ -50,7 +50,9 @@ def process_job(job):
                 'quiet': True, 
                 'no_warnings': True,
                 'noplaylist': True,
-                'extract_flat': 'in_playlist' # Faster extraction
+                'extract_flat': 'in_playlist', # Faster extraction
+                'js_runtimes': {'node': {}},
+                'remote_components': ['ejs:github'],
             }
             
             if os.path.exists(cookies_path):
@@ -264,6 +266,8 @@ def process_job(job):
             'format': format_str,
             'quiet': False,
             'no_warnings': True,
+            'js_runtimes': {'node': {}},
+            'remote_components': ['ejs:github'],
             **ydl_opts_extra
         }
 
