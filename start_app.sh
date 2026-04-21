@@ -22,9 +22,13 @@ if [ ! -d "$VENV_DIR" ]; then
     python3 -m venv "$VENV_DIR" || { echo "Failed to create venv! Please install python-venv (sudo pacman -S python)"; exit 1; }
 fi
 
-echo "Updating dependencies..."
+echo "Updating dependencies (Checking for yt-dlp updates)..."
 "$VENV_DIR/bin/pip" install --upgrade pip
-"$VENV_DIR/bin/pip" install -r worker/requirements.txt
+"$VENV_DIR/bin/pip" install --upgrade -r worker/requirements.txt
+
+# Clear yt-dlp cache to resolve potential bot-detection/403 errors
+echo "Cleaning downloader cache..."
+"$VENV_DIR/bin/yt-dlp" --rm-cache-dir > /dev/null 2>&1
 
 # Check for ffmpeg
 if ! command -v ffmpeg &> /dev/null; then
