@@ -147,30 +147,33 @@ def process_job(job):
                  # Prefer ~/storage/downloads (symlink created by termux-setup-storage)
                  termux_storage = os.path.expanduser('~/storage/downloads')
                  if os.path.exists(termux_storage):
-                     return os.path.join(termux_storage, 'UniversalDownloader')
-                 return "/storage/emulated/0/Download/UniversalDownloader"
+                     return termux_storage
+                 return "/storage/emulated/0/Download"
             
             # 3. Windows Detection
             if os.name == 'nt' or platform.system() == 'Windows':
-                return os.path.join(os.environ.get('USERPROFILE', os.path.expanduser('~')), 'Downloads', 'UniversalDownloader')
+                return os.path.join(os.environ.get('USERPROFILE', os.path.expanduser('~')), 'Downloads')
             
             # 4. Linux / Unix Detection
             try:
                 # Use xdg-user-dir if available
                 result = subprocess.check_output(['xdg-user-dir', 'DOWNLOAD'], stderr=subprocess.STDOUT).decode('utf-8').strip()
                 if result and os.path.exists(result):
-                    return os.path.join(result, 'UniversalDownloader')
+                    return result
             except Exception:
                 pass
 
             # Fallback to default ~/Downloads
-            return os.path.join(os.path.expanduser('~'), 'Downloads', 'UniversalDownloader')
+            return os.path.join(os.path.expanduser('~'), 'Downloads')
 
-        base_path = get_download_path()
+        # Base Downloads folder
+        downloads_folder = get_download_path()
         
-        # Organize by Uploader/Channel Name
-        # We use a template that yt-dlp understands
-        output_template = os.path.join(base_path, "%(uploader)s", "%(title)s.%(ext)s")
+        # Target folder for this app
+        base_path = os.path.join(downloads_folder, 'UniversalDownloader')
+        
+        # Output template: Save directly in UniversalDownloader/ (No nested uploader folders)
+        output_template = os.path.join(base_path, "%(title)s.%(ext)s")
         
         print(f"--> Target Base Path: {base_path}")
         print(f"--> Output Template: {output_template}")
