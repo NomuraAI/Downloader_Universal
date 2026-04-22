@@ -32,8 +32,8 @@ echo "Cleaning downloader cache..."
 
 # Check for ffmpeg
 if ! command -v ffmpeg &> /dev/null; then
-    echo -e "${BLUE}Warning: ffmpeg not found. Some formats might fail to merge.${NC}"
-    echo -e "Install it with: sudo pacman -S ffmpeg"
+    echo -e "${BLUE}Warning: ffmpeg not found. Some formats (like 1080p+) might fail to merge audio/video.${NC}"
+    echo -e "Please install ffmpeg using your package manager (e.g., sudo apt install ffmpeg, brew install ffmpeg, or sudo pacman -S ffmpeg)"
 fi
 
 echo -e "${GREEN}[2/3] Starting Download Engine (Worker)...${NC}"

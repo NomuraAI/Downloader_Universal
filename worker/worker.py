@@ -191,8 +191,9 @@ def process_job(job):
         # Target folder for this app
         base_path = os.path.join(downloads_folder, 'UniversalDownloader')
         
-        # Output template: Save directly in UniversalDownloader/ (No nested uploader folders)
-        output_template = os.path.join(base_path, "%(title)s.%(ext)s")
+        # Output template: Save in UniversalDownloader/ChannelName/Title.ext
+        # Using a fallback chain: uploader -> channel -> domain -> "Unknown"
+        output_template = os.path.join(base_path, "%(uploader|channel|webpage_url_domain|Unknown)s", "%(title)s.%(ext)s")
         
         print(f"--> Target Base Path: {base_path}")
         print(f"--> Output Template: {output_template}")
