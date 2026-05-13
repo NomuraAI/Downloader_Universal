@@ -50,7 +50,7 @@ if exist "worker\venv\Scripts\activate.bat" (
 ffmpeg -version >nul 2>&1
 if %errorlevel% neq 0 (
     echo [WARNING] FFmpeg not found! 
-    echo High-quality videos (1080p+) and MP3 conversion may fail.
+    echo High-quality videos 1080p+ and MP3 conversion may fail.
     echo Please install FFmpeg and add it to your PATH.
 )
 
