@@ -34,8 +34,7 @@ if exist "worker\venv\Scripts\activate.bat" (
     echo [INFO] Updating pip...
     python -m pip install --upgrade pip
     echo [INFO] Installing requirements...
-    :: REMOVED >nul 2>&1 to see progress/errors
-    pip install --no-cache-dir -r worker\requirements.txt
+    python -m pip install --no-cache-dir -r worker\requirements.txt
     if %errorlevel% neq 0 (
         echo [ERROR] Failed to install dependencies. Please check your internet connection.
         pause
