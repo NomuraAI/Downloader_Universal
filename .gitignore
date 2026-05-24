@@ -3,3 +3,5 @@ node_modules
 worker/.env
 worker/venv
 Downloads/
+__pycache__/
+*.pyc

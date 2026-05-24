@@ -23,6 +23,50 @@ if not SUPABASE_URL or not SUPABASE_KEY:
 
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
+def safe_extract_info(url, ydl_opts, download=False):
+    """
+    Extracts info (and optionally downloads) with fallback logic for browser cookies.
+    """
+    cookies_browser_env = os.getenv("YT_DLP_COOKIES_BROWSER")
+    browsers_to_try = []
+    if cookies_browser_env:
+        browsers_to_try = [b.strip() for b in cookies_browser_env.split(',') if b.strip()]
+    
+    if not browsers_to_try:
+        browsers_to_try = [None]
+    else:
+        # Try configured browsers first, then fallback to no browser cookies
+        browsers_to_try.append(None)
+        
+    last_exception = None
+    for browser in browsers_to_try:
+        opts = ydl_opts.copy()
+        if browser:
+            print(f"--> [AUTH] Trying cookies from browser: {browser}")
+            opts['cookiesfrombrowser'] = (browser,)
+        else:
+            opts.pop('cookiesfrombrowser', None)
+            
+        try:
+            with yt_dlp.YoutubeDL(opts) as ydl:
+                info = ydl.extract_info(url, download=download)
+                filename = ydl.prepare_filename(info) if download else None
+                return info, filename
+        except Exception as e:
+            last_exception = e
+            is_cookie_error = any(err in str(e).lower() for err in ['cookie', 'database', 'permission', 'find'])
+            if browser and is_cookie_error:
+                print(f"--> [AUTH Warning] Failed to load cookies from browser '{browser}': {e}. Trying next option...")
+                continue
+            elif browser:
+                print(f"--> [Warning] Extraction/download failed with browser '{browser}': {e}. Trying next option...")
+                continue
+            else:
+                # No more options left, will raise the last exception
+                break
+                
+    raise last_exception
+
 def progress_hook(d):
     if d['status'] == 'downloading':
         try:
@@ -59,90 +103,82 @@ def process_job(job):
                 print(f"--> [AUTH] Using cookies from: {cookies_path}")
                 ydl_opts['cookiefile'] = cookies_path
             
-            # Check for browser cookies
-            cookies_browser_env = os.getenv("YT_DLP_COOKIES_BROWSER")
-            if cookies_browser_env:
-                # Use the first browser from the list if multiple are provided
-                cookies_browser = cookies_browser_env.split(',')[0].strip()
-                print(f"--> [AUTH] Using cookies from browser: {cookies_browser}")
-                ydl_opts['cookiesfrombrowser'] = (cookies_browser,)
+            info, _ = safe_extract_info(url, ydl_opts, download=False)
+            print(f"--> [SCAN DONE] Info extracted. Title: {info.get('title')}")
             
-            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                info = ydl.extract_info(url, download=False)
-                print(f"--> [SCAN DONE] Info extracted. Title: {info.get('title')}")
-                formats = []
+            formats = []
+            
+            # Filter and simplify formats for UI
+            seen_resolutions = set()
+            for f in info.get('formats', []):
+                # Skip if no video
+                if f.get('vcodec') == 'none':
+                    continue
+                    
+                # Determine if it needs audio merging
+                is_video_only = f.get('acodec') == 'none'
                 
-                # Filter and simplify formats for UI
-                seen_resolutions = set()
-                for f in info.get('formats', []):
-                    # Skip if no video
-                    if f.get('vcodec') == 'none':
-                        continue
-                        
-                    # Determine if it needs audio merging
-                    is_video_only = f.get('acodec') == 'none'
-                    
-                    # Construct smart format ID
-                    # If video-only (common for 1080p+), request merge with best audio
-                    smart_format_id = f"{f['format_id']}+bestaudio" if is_video_only else f['format_id']
-                    
-                    # Basic attributes
-                    resolution = f.get('resolution') or f'{f.get("width")}x{f.get("height")}'
-                    ext = f['ext']
-                    filesize = f.get('filesize_approx') or f.get('filesize')
-                    
-                    # Deduplication strategy:
-                    # Prefer MP4 over others for same resolution (simple heuristic)
-                    # We create a unique key for resolution.
-                    # Note: users might want specific codec, but for "Simple" UI, unique resolution is better.
-                    # We process generally from worst to best in format list usually, or reverse in the loop below.
-                    # Let's just allow all strictly, OR filter duplicates.
-                    # Let's allow all for now but maybe prioritize MP4 visually? 
-                    # Actually, simple dedupe: if 1080p mp4 exists, don't show 1080p webm
-                    
-                    res_key = f"{resolution}"
-                    if res_key in seen_resolutions and ext != 'mp4': 
-                         continue # Skip non-mp4 duplicates if we already saw one (assuming sorting helps)
-                    # Actually better to just add all unique combos of Res+Ext
-                    
-                    # Simpler filter: just ensure we have meaningful resolution
-                    if not resolution or 'audio only' in resolution: 
-                        continue
-
-                    # Human readable size
-                    size_str = "Unknown"
-                    if filesize:
-                        size_str = f"{filesize / 1024 / 1024:.1f} MB"
-
-                    formats.append({
-                        'format_id': smart_format_id,
-                        'resolution': resolution,
-                        'ext': ext,
-                        'filesize': size_str,
-                        'note': f.get('format_note')
-                    })
-                    seen_resolutions.add(res_key)
+                # Construct smart format ID
+                # If video-only (common for 1080p+), request merge with best audio
+                smart_format_id = f"{f['format_id']}+bestaudio" if is_video_only else f['format_id']
                 
-                # Sort: Highest Resolution first
-                # We can rely on yt-dlp sorting roughly, but let's reverse to show best on top
-                formats.reverse()
+                # Basic attributes
+                resolution = f.get('resolution') or f'{f.get("width")}x{f.get("height")}'
+                ext = f['ext']
+                filesize = f.get('filesize_approx') or f.get('filesize')
+                
+                # Deduplication strategy:
+                # Prefer MP4 over others for same resolution (simple heuristic)
+                # We create a unique key for resolution.
+                # Note: users might want specific codec, but for "Simple" UI, unique resolution is better.
+                # We process generally from worst to best in format list usually, or reverse in the loop below.
+                # Let's just allow all strictly, OR filter duplicates.
+                # Let's allow all for now but maybe prioritize MP4 visually? 
+                # Actually, simple dedupe: if 1080p mp4 exists, don't show 1080p webm
+                
+                res_key = f"{resolution}"
+                if res_key in seen_resolutions and ext != 'mp4': 
+                     continue # Skip non-mp4 duplicates if we already saw one (assuming sorting helps)
+                # Actually better to just add all unique combos of Res+Ext
+                
+                # Simpler filter: just ensure we have meaningful resolution
+                if not resolution or 'audio only' in resolution: 
+                    continue
 
-                # Add Audio Only Option
-                formats.insert(0, {
-                    'format_id': 'audio_only',
-                    'resolution': 'Audio Only',
-                    'ext': 'mp3',
-                    'filesize': 'Varies',
-                    'note': 'Convert to MP3'
+                # Human readable size
+                size_str = "Unknown"
+                if filesize:
+                    size_str = f"{filesize / 1024 / 1024:.1f} MB"
+
+                formats.append({
+                    'format_id': smart_format_id,
+                    'resolution': resolution,
+                    'ext': ext,
+                    'filesize': size_str,
+                    'note': f.get('format_note')
                 })
-                
-                # Update DB
-                supabase.table('downloads').update({
-                    'status': 'waiting_for_selection',
-                    'available_formats': formats,
-                    'title': info.get('title', 'Unknown Title') # Store title early
-                }).eq('id', job['id']).execute()
-                print("Formats extracted. Waiting for user selection.")
+                seen_resolutions.add(res_key)
+            
+            # Sort: Highest Resolution first
+            # We can rely on yt-dlp sorting roughly, but let's reverse to show best on top
+            formats.reverse()
+
+            # Add Audio Only Option
+            formats.insert(0, {
+                'format_id': 'audio_only',
+                'resolution': 'Audio Only',
+                'ext': 'mp3',
+                'filesize': 'Varies',
+                'note': 'Convert to MP3'
+            })
+            
+            # Update DB
+            supabase.table('downloads').update({
+                'status': 'waiting_for_selection',
+                'available_formats': formats,
+                'title': info.get('title', 'Unknown Title') # Store title early
+            }).eq('id', job['id']).execute()
+            print("Formats extracted. Waiting for user selection.")
 
         except Exception as e:
             print(f"Error scanning {url}: {e}")
@@ -276,14 +312,6 @@ def process_job(job):
             print(f"--> [AUTH] Using cookies for download from: {cookies_path}")
             ydl_opts['cookiefile'] = cookies_path
 
-        # Check for browser cookies
-        cookies_browser_env = os.getenv("YT_DLP_COOKIES_BROWSER")
-        if cookies_browser_env:
-            # Use the first browser from the list if multiple are provided
-            cookies_browser = cookies_browser_env.split(',')[0].strip()
-            print(f"--> [AUTH] Using cookies for download from browser: {cookies_browser}")
-            ydl_opts['cookiesfrombrowser'] = (cookies_browser,)
-
         try:
             # Update status to downloading start
             supabase.table('downloads').update({
@@ -292,19 +320,17 @@ def process_job(job):
                 'last_log': f"Starting download to: {base_path}"
             }).eq('id', job['id']).execute()
 
-            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                info = ydl.extract_info(url, download=True)
-                filename = ydl.prepare_filename(info)
+            info, filename = safe_extract_info(url, ydl_opts, download=True)
                 
-                print(f"Successfully downloaded to: {filename}")
-                
-                # Update status to completed
-                supabase.table('downloads').update({
-                    'status': 'completed',
-                    'filename': filename,
-                    'progress': 100,
-                    'last_log': f"Download Complete! Saved to: {filename}"
-                }).eq('id', job['id']).execute()
+            print(f"Successfully downloaded to: {filename}")
+            
+            # Update status to completed
+            supabase.table('downloads').update({
+                'status': 'completed',
+                'filename': filename,
+                'progress': 100,
+                'last_log': f"Download Complete! Saved to: {filename}"
+            }).eq('id', job['id']).execute()
 
         except Exception as e:
             print(f"Error downloading {url}: {e}")
