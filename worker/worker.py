@@ -32,11 +32,13 @@ def safe_extract_info(url, ydl_opts, download=False):
     if cookies_browser_env:
         browsers_to_try = [b.strip() for b in cookies_browser_env.split(',') if b.strip()]
     
-    if not browsers_to_try:
-        browsers_to_try = [None]
+    # If a specific cookiefile is provided in opts, try it first!
+    if 'cookiefile' in ydl_opts:
+        # None in browsers_to_try means "no browser cookies, use ydl_opts as-is (which includes cookiefile)"
+        browsers_to_try = [None] + browsers_to_try
     else:
-        # Try configured browsers first, then fallback to no browser cookies
-        browsers_to_try.append(None)
+        # Otherwise try browser cookies first, fallback to None (no cookies)
+        browsers_to_try = browsers_to_try + [None]
         
     last_exception = None
     for browser in browsers_to_try:
@@ -119,8 +121,8 @@ def process_job(job):
                 is_video_only = f.get('acodec') == 'none'
                 
                 # Construct smart format ID
-                # If video-only (common for 1080p+), request merge with best audio
-                smart_format_id = f"{f['format_id']}+bestaudio" if is_video_only else f['format_id']
+                # If video-only (common for 1080p+), request merge with best audio (with fallback if no audio exists)
+                smart_format_id = f"{f['format_id']}+bestaudio/{f['format_id']}" if is_video_only else f['format_id']
                 
                 # Basic attributes
                 resolution = f.get('resolution') or f'{f.get("width")}x{f.get("height")}'
@@ -240,9 +242,17 @@ def process_job(job):
         except Exception as e:
             print(f"Warning: Could not create base path {base_path}: {e}")
 
-        # Use selected format if available, otherwise best
+        # Use selected format if available, otherwise best (handling fallback for video-only formats)
         selected_format = job.get('selected_format')
-        format_str = selected_format if selected_format else 'best'
+        if selected_format:
+            if '+bestaudio' in selected_format and '/' not in selected_format:
+                # Support fallback for legacy scan results: "123+bestaudio" -> "123+bestaudio/123"
+                base_format = selected_format.split('+')[0]
+                format_str = f"{selected_format}/{base_format}"
+            else:
+                format_str = selected_format
+        else:
+            format_str = 'best'
         
         # Audio Only Logic
         ydl_opts_extra = {}
