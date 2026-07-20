@@ -1,0 +1,16 @@
+[Instagram] Extracting URL: https://www.instagram.com/reel/DZCl46vpDnV/
+[Instagram] DZCl46vpDnV: Downloading video info
+[info] Available formats for DZCl46vpDnV:
+ID                      EXT RESOLUTION |   FILESIZE   TBR PROTO | VCODEC          VBR ACODEC     MORE INFO
+---------------------------------------------------------------------------------------------------------------------
+1018864063914761v-0     mp4 720x1280   |                  https | unknown             video only
+1018864063914761v-1     mp4 720x1280   |                  https | unknown             video only
+1018864063914761v-2     mp4 720x1280   |                  https | unknown             video only
+dash-1683027479507961v  mp4 720x1280   | ≈929.68KiB  152k https | vp09.00.31.08  152k video only DASH video, mp4_dash
+dash-1352815900282800v  mp4 720x1280   | ≈  1.23MiB  206k https | vp09.00.31.08  206k video only DASH video, mp4_dash
+dash-1525908589326652v  mp4 720x1280   | ≈  1.71MiB  286k https | vp09.00.31.08  286k video only DASH video, mp4_dash
+dash-1630728658155763v  mp4 720x1280   | ≈  2.44MiB  408k https | vp09.00.31.08  408k video only DASH video, mp4_dash
+dash-980529304693736v   mp4 720x1280   | ≈  3.12MiB  520k https | vp09.00.31.08  520k video only DASH video, mp4_dash
+dash-2210057596427084v  mp4 720x1280   | ≈  4.18MiB  698k https | vp09.00.31.08  698k video only DASH video, mp4_dash
+dash-1333189585018338v  mp4 720x1280   | ≈  5.64MiB  942k https | vp09.00.31.08  942k video only DASH video, mp4_dash
+dash-26973694205634141v mp4 1080x1920  | ≈  8.36MiB 1397k https | vp09.00.40.08 1397k video only DASH video, mp4_dash
