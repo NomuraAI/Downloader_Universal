@@ -4,9 +4,17 @@ import json
 import asyncio
 import subprocess
 import platform
+import glob
 from supabase import create_client, Client
 from dotenv import load_dotenv
 import yt_dlp
+
+# Auto-detect node binary in NVM or system for yt-dlp JavaScript runtimes
+nvm_node_path = os.path.expanduser("~/.nvm/versions/node")
+if os.path.exists(nvm_node_path):
+    node_bins = glob.glob(os.path.join(nvm_node_path, "v*", "bin"))
+    if node_bins:
+        os.environ["PATH"] = node_bins[-1] + os.path.pathsep + os.environ.get("PATH", "")
 
 from pathlib import Path
 # Load environment variables from project root
@@ -255,22 +263,24 @@ def process_job(job):
         except Exception as e:
             print(f"Warning: Could not create base path {base_path}: {e}")
 
-        # Use selected format if available, otherwise best (handling fallback for video-only formats)
+        # Use selected format if available, otherwise best (with fallback chain for format stability)
         selected_format = job.get('selected_format')
-        if selected_format:
-            if '+bestaudio' in selected_format and '/' not in selected_format:
-                # Support fallback for legacy scan results: "123+bestaudio" -> "123+bestaudio/123"
+        if selected_format and selected_format != 'audio_only':
+            if '/' in selected_format:
+                format_str = f"{selected_format}/bestvideo+bestaudio/best"
+            elif '+' in selected_format:
                 base_format = selected_format.split('+')[0]
-                format_str = f"{selected_format}/{base_format}"
+                format_str = f"{selected_format}/{base_format}/bestvideo+bestaudio/best"
             else:
-                format_str = selected_format
+                format_str = f"{selected_format}/bestvideo+bestaudio/best"
+        elif selected_format == 'audio_only':
+            format_str = 'bestaudio/best'
         else:
-            format_str = 'best'
+            format_str = 'bestvideo+bestaudio/best'
         
         # Audio Only Logic
         ydl_opts_extra = {}
         if selected_format == 'audio_only':
-            format_str = 'bestaudio/best'
             ydl_opts_extra = {
                 'postprocessors': [{
                     'key': 'FFmpegExtractAudio',
@@ -343,7 +353,16 @@ def process_job(job):
                 'last_log': f"Starting download to: {base_path}"
             }).eq('id', job['id']).execute()
 
-            info, filename = safe_extract_info(url, ydl_opts, download=True)
+            try:
+                info, filename = safe_extract_info(url, ydl_opts, download=True)
+            except Exception as first_err:
+                err_msg = str(first_err).lower()
+                if "requested format" in err_msg or "format" in err_msg:
+                    print(f"--> [Fallback Triggered] Specific format unavailable: {first_err}. Retrying with best available format...")
+                    ydl_opts['format'] = 'bestvideo+bestaudio/best'
+                    info, filename = safe_extract_info(url, ydl_opts, download=True)
+                else:
+                    raise first_err
                 
             print(f"Successfully downloaded to: {filename}")
             
