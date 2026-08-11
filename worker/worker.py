@@ -198,8 +198,21 @@ def process_job(job):
             env_path = os.getenv("DOWNLOAD_ROOT")
             if env_path:
                 return env_path
+
+            # 2. Handle sudo on Linux / Unix (If run with sudo, target real user's Downloads folder)
+            sudo_user = os.getenv("SUDO_USER")
+            if sudo_user:
+                try:
+                    import pwd
+                    user_home = pwd.getpwnam(sudo_user).pw_dir
+                    user_downloads = os.path.join(user_home, 'Downloads')
+                    if os.path.exists(user_downloads):
+                        return user_downloads
+                    return user_home
+                except Exception:
+                    pass
             
-            # 2. Android (Termux) Detection
+            # 3. Android (Termux) Detection
             if "ANDROID_ROOT" in os.environ or "TERMUX_VERSION" in os.environ:
                  # Prefer ~/storage/downloads (symlink created by termux-setup-storage)
                  termux_storage = os.path.expanduser('~/storage/downloads')
@@ -207,11 +220,11 @@ def process_job(job):
                      return termux_storage
                  return "/storage/emulated/0/Download"
             
-            # 3. Windows Detection
+            # 4. Windows Detection
             if os.name == 'nt' or platform.system() == 'Windows':
                 return os.path.join(os.environ.get('USERPROFILE', os.path.expanduser('~')), 'Downloads')
             
-            # 4. Linux / Unix Detection
+            # 5. Linux / Unix Detection
             try:
                 # Use xdg-user-dir if available
                 result = subprocess.check_output(['xdg-user-dir', 'DOWNLOAD'], stderr=subprocess.STDOUT).decode('utf-8').strip()
